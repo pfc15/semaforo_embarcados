@@ -8,43 +8,127 @@ if not DEBUG:
     import RPi.GPIO as GPIO
 
 
-PINS_M1 = [17, 18, 23] # Semáforo M1 [b0, b1, b2]
-PINS_M2 = [24, 8, 7] # Semáforo M2 [b0, b1, b2]
-PINS_SW1 = [1, 12] # Botões de controle do semáforo M1
-PINS_SW2 = [25, 22] # Botões de controle do semáforo M2
+PINS_S1 = [17, 18, 23] # Semáforo S1 [b0, b1, b2]
+PINS_S2 = [24, 8, 7] # Semáforo S2 [b0, b1, b2]
 
-def setup():
-    if len(sys.argv) < 2:
-        print("Usage: python3 client.py <m1|m2>")
-        sys.exit(1)
+PINS_SW1 = [1, 12] # Botões de controle do semáforo S1
+PINS_SW2 = [25, 22] # Botões de controle do semáforo S2
 
-    if DEBUG:
-        print(f"Running in DEBUG mode. No GPIO setup will be performed.")
-        return
+PINS_VEL_SENSOR1_S1 = [16, 20] 
+PINS_VEL_SENSOR2_S1 = [21, 27]
+PINS_VEL_SENSOR1_S2 = [11, 0]
+PINS_VEL_SENSOR2_S2 = [5, 6]
 
-    global PINS
-    global ON
-    global OFF
-    global SW_PRINCIPAL
-    global SW_TRAVESSIA
+ON = GPIO.HIGH
+OFF = GPIO.LOW
 
+LAST_TIME_SEM1_SENSOR1 = [None]
+LAST_TIME_SEM1_SENSOR2 = [None]
+LAST_TIME_SEM2_SENSOR1 = [None]
+LAST_TIME_SEM2_SENSOR2 = [None]
 
-    # Configuração dos pinos GPIO output
-    PINS = PINS_M1 if sys.argv[1] == "m1" else PINS_M2
-    GPIO.setmode(GPIO.BCM)
-    ON = GPIO.HIGH
-    OFF = GPIO.LOW
-    GPIO.setup(PINS, GPIO.OUT)
+class Client():
+    def __init__(self):
+        self.COUNT_CARS = 0
 
-    # Configuração dos pinos GPIO input
-    SW_PRINCIPAL = PINS_SW1[0] if sys.argv[1] == "m2" else PINS_SW2[0]
-    SW_TRAVESSIA = PINS_SW1[1] if sys.argv[1] == "m2" else PINS_SW2[1]
-   
-    GPIO.setup(SW_PRINCIPAL, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.add_event_detect(SW_PRINCIPAL, GPIO.FALLING, bouncetime=200)
+        self.semaforo1 = None
+        self.semaforo2 = None
+        self.modo_noite = True
+        
+    def setupGPIO(self):
+        if DEBUG:
+            print(f"Running in DEBUG mode. No GPIO setup will be performed.")
+            return
 
-    GPIO.setup(SW_TRAVESSIA, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.add_event_detect(SW_TRAVESSIA, GPIO.FALLING, bouncetime=200)
+        GPIO.setmode(GPIO.BCM)
+
+    def setupGPIOSemaforo(self, semaforo="s1"):
+        if DEBUG:
+            print(f"Running in DEBUG mode. No GPIO setup will be performed.")
+            return
+        
+        if semaforo == "s1":
+            # Configuração dos pinos GPIO output (estado do semáforo 1)
+            
+            GPIO.setup(PINS_S1, GPIO.OUT)
+
+            # Configuração dos pinos GPIO input (botões de controle semaforo 1)
+            GPIO.setup(PINS_SW1[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.add_event_detect(PINS_SW1[0], GPIO.FALLING, bouncetime=200)
+
+            GPIO.setup(PINS_SW1[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.add_event_detect(PINS_SW1[1], GPIO.FALLING, bouncetime=200)
+
+            # Configuração dos pinos GPIO input (sensores de velocidade)
+            GPIO.setup(PINS_VEL_SENSOR1_S1[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.setup(PINS_VEL_SENSOR1_S1[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.setup(PINS_VEL_SENSOR2_S1[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.setup(PINS_VEL_SENSOR2_S1[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+
+        if semaforo == "s2":
+            # Configuração dos pinos GPIO output (estado do semáforo 2)
+            GPIO.setup(PINS_S2, GPIO.OUT)
+
+            # Configuração dos pinos GPIO input (botões de controle semaforo 2)
+            GPIO.setup(PINS_SW2[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.add_event_detect(PINS_SW2[0], GPIO.FALLING, bouncetime=200)
+
+            GPIO.setup(PINS_SW2[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.add_event_detect(PINS_SW2[1], GPIO.FALLING, bouncetime=200)
+
+            # Configuração dos pinos GPIO input (sensores de velocidade)
+            GPIO.setup(PINS_VEL_SENSOR1_S2[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.setup(PINS_VEL_SENSOR1_S2[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.setup(PINS_VEL_SENSOR2_S2[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            GPIO.setup(PINS_VEL_SENSOR2_S2[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+
+            
+
+    def setupSem(self, semaforo="s1"):
+        instanceSemaforo = Semaforo()
+
+        if semaforo == "s1":
+            self.semaforo1 = instanceSemaforo
+        else:
+            self.semaforo2 = instanceSemaforo
+
+        if self.modo_noite:
+            instanceSemaforo.estado = instanceSemaforo.estados["E4ModoNoite"]
+
+        instanceSemaforo.end_time = get_end_time(instanceSemaforo.estado.temp_espera)
+
+        set_gpio_output(instanceSemaforo.estado.codigo, semaforo=1 if semaforo == "s1" else 2)
+
+    def loopSem(self, semaforo="s1"):
+        instanceSemaforo = self.semaforo1 if semaforo == "s1" else self.semaforo2
+        end_time = instanceSemaforo.end_time
+        swpins = PINS_SW1 if semaforo == "s1" else PINS_SW2
+
+        if not self.modo_noite:
+            if GPIO.event_detected(swpins[0]):
+                print("Botão principal pressionado!")
+                if instanceSemaforo.estado.principalPressed():                
+                    pass
+
+            if GPIO.event_detected(swpins[1]):
+                print("Botão de travessia pressionado!")
+                if instanceSemaforo.estado.travessiaPressed():
+                    pass
+
+        if datetime.datetime.now() >= end_time:
+            instanceSemaforo.mudaEstado(modo_noite=self.modo_noite)
+            instanceSemaforo.end_time = get_end_time(instanceSemaforo.estado.temp_espera)
+            set_gpio_output(instanceSemaforo.estado.codigo, semaforo=1 if semaforo == "s1" else 2)
 
 class Estado():
     def __init__(self, codigo, prox, temp_espera):
@@ -53,17 +137,23 @@ class Estado():
         self.temp_espera = temp_espera
     
     semaforo_da_vez = "principal"
+
+    def principalPressed(self):
+        return False
+    
+    def travessiaPressed(self):
+        return False
     
 class Estado0(Estado):
     def __init__(self):
-        super().__init__(b"000", "E4", 1)
+        super().__init__(b"000", "E4ModoNoite", 1)
 
 class Estado1(Estado):
     def __init__(self):
         super().__init__(b"001", "E1MinimoAtingido", 15)
 
     def principalPressed(self):
-        self.prox = Estado3()
+        self.prox = "E3"
         return True
 
 class Estado1MinimoAtingido(Estado):
@@ -85,6 +175,10 @@ class Estado3SegundaPiscada(Estado):
 class Estado4(Estado):
     def __init__(self):
         super().__init__(b"100", "E5", 2)
+
+class Estado4ModoNoite(Estado):
+    def __init__(self):
+        super().__init__(b"100", "E0", 1)
 
 class Estado5(Estado):
     def __init__(self):
@@ -110,10 +204,10 @@ class Estado7SegundaPiscada(Estado):
     def __init__(self):
         super().__init__(b"111", "E4", 1)
 
+
 class Semaforo():
     semaforo_da_vez = "principal" # "principal" ou "travessia"
-    standby = False
-    
+
     def __init__(self):
         self.estados = {
             "E0": Estado0(),
@@ -123,6 +217,7 @@ class Semaforo():
             "E2": Estado2(),
             "E3SegundaPiscada": Estado3SegundaPiscada(),
             "E4": Estado4(),
+            "E4ModoNoite": Estado4ModoNoite(),
             "E5": Estado5(),
             "E5MinimoAtingido": Estado5MinimoAtingido(),
             "E7": Estado7(),
@@ -131,17 +226,18 @@ class Semaforo():
         }
 
         self.estado = self.estados["E1"]
+        self.end_time = None
 
+    def mudaEstado(self, modo_noite=False):
+        if modo_noite:
+            if not (isinstance(self.estado, Estado0) or isinstance(self.estado, Estado4ModoNoite)):
+                self.estado = self.estados["E4ModoNoite"]
+                self.estado.end_time = get_end_time(self.estado.temp_espera)
 
-    def mudaEstado(self, proximo_estado):
-        if self.standby:
-            if (isinstance(self.estado, Estado0)):
-                self.estado.prox = "E4"
-                self.estado.temp_espera = 1
-            
-            if (isinstance(self.estado, Estado4)):
-                self.estado.prox = "E0"
-                self.estado.temp_espera = 1
+        if not modo_noite:
+            if isinstance(self.estado, Estado4ModoNoite) or isinstance(self.estado, Estado0):
+                self.estado = self.estados["E1"]
+                self.estado.end_time = get_end_time(self.estado.temp_espera)
 
         if isinstance(self.estado, Estado4):
             if self.semaforo_da_vez == "principal":
@@ -151,13 +247,13 @@ class Semaforo():
                 self.semaforo_da_vez = "principal"
                 self.estados["E4"].prox = "E5"
         
-        self.estado = self.estados[proximo_estado]
+        self.estado = self.estados[self.estado.prox]
 
 
 def get_end_time(temp_espera):
     return datetime.datetime.now() + datetime.timedelta(seconds=temp_espera)
 
-def set_gpio_output(codigo):
+def set_gpio_output(codigo, semaforo=1):
     if DEBUG:
         print(f"GPIO output for estado {codigo}: {codigo}")
         return
@@ -174,24 +270,54 @@ def set_gpio_output(codigo):
         b"111": [ON, ON, ON]      # E7
     }
 
-    GPIO.output(PINS, gpio_mapping[codigo])
+    GPIO.output(PINS_S1 if semaforo == 1 else PINS_S2, gpio_mapping[codigo])
+
+def velocidade_callback(channel):
+    pinos_a = {
+        PINS_VEL_SENSOR1_S1[0]: LAST_TIME_SEM1_SENSOR1,
+        PINS_VEL_SENSOR2_S1[0]: LAST_TIME_SEM1_SENSOR2,
+        PINS_VEL_SENSOR1_S2[0]: LAST_TIME_SEM2_SENSOR1,
+        PINS_VEL_SENSOR2_S2[0]: LAST_TIME_SEM2_SENSOR2,
+    }
+
+    pinos_b = {
+        PINS_VEL_SENSOR1_S1[1]: LAST_TIME_SEM1_SENSOR1,
+        PINS_VEL_SENSOR2_S1[1]: LAST_TIME_SEM1_SENSOR2,
+        PINS_VEL_SENSOR1_S2[1]: LAST_TIME_SEM2_SENSOR1,
+        PINS_VEL_SENSOR2_S2[1]: LAST_TIME_SEM2_SENSOR2
+    }
+
+    name_bind = {pino: i + 1 for i, pino in enumerate(pinos_b)}
+
+    if channel in pinos_a:
+        pinos_a[channel][0] = datetime.datetime.now()
+    elif channel in pinos_b:
+        last_time_a = pinos_b[channel][0]
+        if last_time_a is None:
+            print(f"Falha ao calcular a velocidade para o canal {channel}.")
+            return
+        
+        tempo_decorrido = (datetime.datetime.now() - last_time_a).total_seconds()
+        if tempo_decorrido > 0:
+            vel = 7.2 / tempo_decorrido
+            print(f"Velocidade sensor {name_bind[channel]}: {vel:.2f} km/h, tempo decorrido: {tempo_decorrido:.2f} segundos")
+        
+        pinos_b[channel][0] = None
 
 def main():
-    setup()
-
-    semaforo = Semaforo()
-    end_time = get_end_time(semaforo.estado.temp_espera)
-    set_gpio_output(semaforo.estado.codigo)
-    print(f"Estado atual: {semaforo.estado.codigo}, próximo estado: {semaforo.estados[semaforo.estado.prox].codigo}, tempo de espera: {semaforo.estado.temp_espera} segundos")
+    client = Client()
+    client.setupGPIO()
+    client.setupGPIOSemaforo("s1")
+    client.setupGPIOSemaforo("s2")
+    client.setupSem("s1")
+    client.setupSem("s2")
 
     try:
         while True:
-            if datetime.datetime.now() >= end_time:
-                semaforo.mudaEstado(semaforo.estado.prox)
-                end_time = get_end_time(semaforo.estado.temp_espera)
-                print(f"Estado atual: {semaforo.estado.codigo}, próximo estado: {semaforo.estados[semaforo.estado.prox].codigo}, tempo de espera: {semaforo.estado.temp_espera} segundos")
-                set_gpio_output(semaforo.estado.codigo)
-            sleep(1)
+            client.loopSem("s1")
+            client.loopSem("s2")
+
+            sleep(0.005)
     except KeyboardInterrupt:
         pass
     finally:
