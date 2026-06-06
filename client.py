@@ -39,7 +39,7 @@ class Client():
 
         self.semaforo1 = None
         self.semaforo2 = None
-        self.modo_noite = True
+        self.modo_noite = False
         self.modo_emergencia = None # "principal" | "travessia1" | "travessia2" | None
         
     def setupGPIO(self):
@@ -72,10 +72,10 @@ class Client():
             GPIO.setup(PINS_VEL_SENSOR2_S1[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             GPIO.setup(PINS_VEL_SENSOR2_S1[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[0], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[1], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[0], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[1], GPIO.RISING, callback=velocidade_callback)
 
         if semaforo == "s2":
             # Configuração dos pinos GPIO output (estado do semáforo 2)
@@ -94,10 +94,10 @@ class Client():
             GPIO.setup(PINS_VEL_SENSOR2_S2[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             GPIO.setup(PINS_VEL_SENSOR2_S2[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[0], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[1], GPIO.RISING, bouncetime=100, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[0], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[1], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[0], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[1], GPIO.RISING, callback=velocidade_callback)
 
             
 
@@ -310,36 +310,50 @@ def set_gpio_output(codigo, semaforo=1):
     GPIO.output(PINS_S1 if semaforo == 1 else PINS_S2, gpio_mapping[codigo])
 
 def velocidade_callback(channel):
-    pinos_a = {
+    last_time_pins_a = {
         PINS_VEL_SENSOR1_S1[0]: LAST_TIME_SEM1_SENSOR1,
         PINS_VEL_SENSOR2_S1[0]: LAST_TIME_SEM1_SENSOR2,
         PINS_VEL_SENSOR1_S2[0]: LAST_TIME_SEM2_SENSOR1,
         PINS_VEL_SENSOR2_S2[0]: LAST_TIME_SEM2_SENSOR2,
     }
 
-    pinos_b = {
+    last_time_pins_b = {
         PINS_VEL_SENSOR1_S1[1]: LAST_TIME_SEM1_SENSOR1,
         PINS_VEL_SENSOR2_S1[1]: LAST_TIME_SEM1_SENSOR2,
         PINS_VEL_SENSOR1_S2[1]: LAST_TIME_SEM2_SENSOR1,
         PINS_VEL_SENSOR2_S2[1]: LAST_TIME_SEM2_SENSOR2
     }
 
-    name_bind = {pino: i + 1 for i, pino in enumerate(pinos_b)}
+    name_bind = {pino: i + 1 for i, pino in enumerate(last_time_pins_b)}
 
-    if channel in pinos_a:
-        pinos_a[channel][0] = datetime.datetime.now()
-    elif channel in pinos_b:
-        last_time_a = pinos_b[channel][0]
+    if channel in last_time_pins_a:
+        last_time_pins_a[channel][0] = datetime.datetime.now()
+        
+    elif channel in last_time_pins_b:
+        last_time_a = last_time_pins_b[channel][0]
         if last_time_a is None:
             print(f"Falha ao calcular a velocidade para o canal {channel}.")
             return
         
         tempo_decorrido = (datetime.datetime.now() - last_time_a).total_seconds()
+        sensor = name_bind[channel]
         if tempo_decorrido > 0:
-            vel = 7.2 / tempo_decorrido
-            print(f"Velocidade sensor {name_bind[channel]}: {vel:.2f} km/h, tempo decorrido: {tempo_decorrido:.2f} segundos")
+            vel = 10.15 / tempo_decorrido
+            vel1 = vel if sensor == 1 else 0
+            vel2 = vel if sensor == 2 else 0
+            vel3 = vel if sensor == 3 else 0
+            vel4 = vel if sensor == 4 else 0
+
+            cor_vel_1 = "\033[92m" if vel1 <= 60 else "\033[91m"
+            cor_vel_2 = "\033[92m" if vel2 <= 60 else "\033[91m"
+            cor_vel_3 = "\033[92m" if vel3 <= 60 else "\033[91m"
+            cor_vel_4 = "\033[92m" if vel4 <= 60 else "\033[91m"
+            reset_cor = "\033[0m"
+
+            print(f"[ 1: {cor_vel_1}{vel1:.2f}{reset_cor} ] [ 2: {cor_vel_2}{vel2:.2f}{reset_cor} ] [ 3: {cor_vel_3}{vel3:.2f}{reset_cor} ] [ 4: {cor_vel_4}{vel4:.2f}{reset_cor} ]")
+            #print(f"Velocidade sensor {name_bind[channel]}: {vel:.2f} km/h, tempo decorrido: {tempo_decorrido:.2f} segundos")
         
-        pinos_b[channel][0] = None
+        last_time_pins_b[channel][0] = None
 
 def main():
     client = Client()
@@ -354,7 +368,7 @@ def main():
             client.loopSem("s1")
             client.loopSem("s2")
 
-            sleep(0.005)
+            sleep(0.05)
     except KeyboardInterrupt:
         pass
     finally:
