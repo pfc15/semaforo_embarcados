@@ -14,7 +14,7 @@ PINS_S2 = [24, 8, 7] # Semáforo S2 [b0, b1, b2]
 PINS_SW1 = [1, 12] # Botões de controle do semáforo S1
 PINS_SW2 = [25, 22] # Botões de controle do semáforo S2
 
-PINS_VEL_SENSOR1_S1 = [16, 20] 
+PINS_VEL_SENSOR1_S1 = [16, 20]
 PINS_VEL_SENSOR2_S1 = [21, 27]
 PINS_VEL_SENSOR1_S2 = [11, 0]
 PINS_VEL_SENSOR2_S2 = [5, 6]
@@ -27,6 +27,12 @@ LAST_TIME_SEM1_SENSOR2 = [None]
 LAST_TIME_SEM2_SENSOR1 = [None]
 LAST_TIME_SEM2_SENSOR2 = [None]
 
+STATE_BIND = {
+    "principal": "E1EmergenciaPrincipal",
+    "travessia1": "E5EmergenciaTravessia",
+    "travessia2": "E5EmergenciaTravessia"
+}
+
 class Client():
     def __init__(self):
         self.COUNT_CARS = 0
@@ -34,6 +40,7 @@ class Client():
         self.semaforo1 = None
         self.semaforo2 = None
         self.modo_noite = True
+        self.modo_emergencia = None # "principal" | "travessia1" | "travessia2" | None
         
     def setupGPIO(self):
         if DEBUG:
@@ -114,6 +121,23 @@ class Client():
         end_time = instanceSemaforo.end_time
         swpins = PINS_SW1 if semaforo == "s1" else PINS_SW2
 
+        if (
+            self.modo_emergencia
+            and not isinstance(
+                instanceSemaforo.estado,
+                (Estado1EmergenciaPrincipal, Estado5EmergenciaTravessia))
+        ):
+            pr = self.modo_emergencia == "principal"
+            t1 = self.modo_emergencia == "travessia1"
+            t2 = self.modo_emergencia == "travessia2"
+            s1 = semaforo == "s1"
+            s2 = semaforo == "s2"
+
+            if ((pr and (s1 or s2)) or (s1 and t1) or (s2 and t2)):
+                instanceSemaforo.estado = instanceSemaforo.estados[STATE_BIND[self.modo_emergencia]]
+                instanceSemaforo.end_time = get_end_time(instanceSemaforo.estado.temp_espera)
+                set_gpio_output(instanceSemaforo.estado.codigo, semaforo=1 if semaforo == "s1" else 2)
+
         if not self.modo_noite:
             if GPIO.event_detected(swpins[0]):
                 print("Botão principal pressionado!")
@@ -129,6 +153,9 @@ class Client():
             instanceSemaforo.mudaEstado(modo_noite=self.modo_noite)
             instanceSemaforo.end_time = get_end_time(instanceSemaforo.estado.temp_espera)
             set_gpio_output(instanceSemaforo.estado.codigo, semaforo=1 if semaforo == "s1" else 2)
+
+    def setModoEmergencia(self, modo):
+        self.modo_emergencia = modo
 
 class Estado():
     def __init__(self, codigo, prox, temp_espera):
@@ -204,6 +231,14 @@ class Estado7SegundaPiscada(Estado):
     def __init__(self):
         super().__init__(b"111", "E4", 1)
 
+class Estado1EmergenciaPrincipal(Estado):
+    def __init__(self):
+        super().__init__(b"001", "E1EmergenciaPrincipal", 1)
+
+class Estado5EmergenciaTravessia(Estado):
+    def __init__(self):
+        super().__init__(b"101", "E5EmergenciaTravessia", 1)
+
 
 class Semaforo():
     semaforo_da_vez = "principal" # "principal" ou "travessia"
@@ -222,7 +257,9 @@ class Semaforo():
             "E5MinimoAtingido": Estado5MinimoAtingido(),
             "E7": Estado7(),
             "E6": Estado6(),
-            "E7SegundaPiscada": Estado7SegundaPiscada()
+            "E7SegundaPiscada": Estado7SegundaPiscada(),
+            "E1EmergenciaPrincipal": Estado1EmergenciaPrincipal(),
+            "E5EmergenciaTravessia": Estado5EmergenciaTravessia()
         }
 
         self.estado = self.estados["E1"]
