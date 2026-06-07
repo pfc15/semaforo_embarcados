@@ -1,7 +1,7 @@
 import serial
 import struct
 from bitarray import bitarray
-from setup_servidor import *
+from central.modbus import *
 from time import sleep
 import time
 
@@ -80,7 +80,8 @@ def tirar_foto(ser, sensor:int) -> bool:
 
     return True
 
-        
+
+
 
 
 
