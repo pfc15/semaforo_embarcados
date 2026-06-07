@@ -1,5 +1,6 @@
 import socket
 import threading
+import struct
 from time import sleep
 
 
@@ -45,6 +46,20 @@ class servidor_central():
 
         print("Servidor encerrado.")
 
+
+    def handle_multa(self, data):
+        direcoes = [(1, "principal"), (1, "cruzamento"), (2, "principal")
+                    , (2, "cruzamento")]
+    
+        sem_dir = data[0]
+        semaforo, via = direcoes[int(sem_dir)]
+        print(data)
+        velocidade = struct.unpack("f", data[1:5])[0]
+        print(f"carro acima da velocidade no semaforo {semaforo} " \
+        f"via {via}\n; velocidade: {velocidade}")
+    
+    def handle_quantidade(self, data):
+        print(f"quantidade de carros: {data[0]}")
     
     def tratar_cliente(self, sock, addr):
         print(f"Cliente conectado: {addr}")
@@ -56,8 +71,14 @@ class servidor_central():
 
                     if not data:
                         break
+                    data = bytes(data)
 
                     print(f"{addr}: {data.decode()}")
+                    if data[0] == 0x01:
+                        self.handle_multa(data=data[1:])
+                    elif data[0] == 0x02:
+                        self.handle_quantidade(data=data[1:])
+
                 except OSError:
                     print("não estamos aceitando mais mensagens")
                     break
@@ -85,23 +106,34 @@ class servidor_central():
                 server.close()
                 return
 
-    def enviar_para_todos(self, msg: str):
-        dados = msg.encode()
+    def enviar_para_todos(self, msg):
+        # dados = msg.decode()
 
         for cliente in self.clientes[:]:
             try:
-                cliente.sendall(dados)
+                cliente.sendall(msg)
             except:
                 self.clientes.remove(cliente)
                 cliente.close()
 
+    def enviar_modo(self, modo:bool) -> bool:
+        payload = bytes([0x02, 0x00 if not modo else 0x01])
+        servidor.enviar_para_todos(payload)
+    
+    def enviar_abrir(self, sinal:hex):
+        payload = bytes([0x01, sinal])
+        servidor.enviar_para_todos(payload)
     
 
 def enviar_comandos_lentamente(servidor):
     cont = 0
     while servidor.rodando:
         sleep(5)
-        servidor.enviar_para_todos(f"enviei {cont}")
+        if cont%2==0:
+            servidor.enviar_modo(True)
+        else:
+            servidor.enviar_abrir(0x01)
+        
         cont +=1
 
 

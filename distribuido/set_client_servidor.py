@@ -1,44 +1,85 @@
 import socket
+import struct
 import threading
 
+class Cliente_sinal():
+    def __init__(self, host="127.0.0.1", porta=65432):
+        self.rodando = True
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, porta ))
+        self._handles = {
+            0x01: self.handle_abrir_sinal,
+            0x02: self.handle_modo_dia
+        }
 
-def receber_mensagens(sock):
-    while True:
+        threading.Thread(
+            target=self.receber_mensagens,
+            args=(self.sock,),
+            daemon=True
+        ).start()
+
+    def desligar(self):
+        print("Encerrando servidor...")
+
+        self.rodando = False
+
         try:
-            data = sock.recv(1024)
+            self.sock.close()
+        except:
+            pass
+        
+        print("Servidor encerrado.")
 
-            if not data:
-                print("Servidor desconectou")
+    def receber_mensagens(self, sock):
+        while self.rodando:
+            try:
+                data = sock.recv(1024)
+                print(data)
+
+                if not data:
+                    print("Servidor desconectou")
+                    break
+                data = bytes(data)
+                self._handles[data[0]](data[1:])
+
+            except Exception as e:
+                print(f"Erro: {e}")
                 break
 
-            print(data)
-            for b in bytes(data):
-                print(f"{hex(b)}", end="; ")
-            print()
+        sock.close()
 
-        except Exception as e:
-            print(f"Erro: {e}")
-            break
+    def handle_modo_dia(self, data):
+        print("handler modo dia")
+        if data[0] == 0x00:
+            print("modo noturno")
+        elif data[0] == 0x01:
+            print("modo dia")
 
-    sock.close()
-
-
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(("127.0.0.1", 65432))
-
-threading.Thread(
-    target=receber_mensagens,
-    args=(sock,),
-    daemon=True
-).start()
+    def handle_abrir_sinal(self, data):
+        print("handler abrir sinal")
+        print(f"abrir sinal: {data[0]}")
+    
+    def enviar_msg(self, data):
+        self.sock.send(data)
 
 
+
+cliente = Cliente_sinal()
 while True:
     comando = input("> ")
 
-    if comando == "sair":
+    if comando == "sair" or comando== "exit":
+        cliente.desligar()
         break
 
-    sock.sendall(comando.encode())
+    if comando == "sinal":
+        payload = bytes([0x01, 0x01]) + struct.pack("f", 10.5)
+        print(f"len: {len(payload)}; payload: {payload}")
+        cliente.enviar_msg(payload)
+    if comando == "quantidade":
+        payload = bytes([0x02, 0x03])
+        cliente.enviar_msg(payload)
 
-sock.close()
+    
+
+
