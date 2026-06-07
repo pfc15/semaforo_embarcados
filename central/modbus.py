@@ -103,8 +103,6 @@ def modbus_enviar_comando(ser, endereco: int,funcao: int, dados: bytes,) -> tupl
     pacote_bits.extend(crc_bits)
     payload_final = pacote_bits.tobytes()
 
-    print(f"payload_final: {payload_final}")
-
     # --- Envia ---
     try:
         print("Escrevendo caracteres na UART ...", end=" ")

@@ -4,8 +4,8 @@ import struct
 from time import sleep
 
 
-class servidor_central():
-    def __init__(self, host="0.0.0.0", porta=65432):
+class Servidor():
+    def __init__(self, host="0.0.0.0", porta=65430):
         self.rodando = True
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(
@@ -118,11 +118,11 @@ class servidor_central():
 
     def enviar_modo(self, modo:bool) -> bool:
         payload = bytes([0x02, 0x00 if not modo else 0x01])
-        servidor.enviar_para_todos(payload)
+        self.enviar_para_todos(payload)
     
     def enviar_abrir(self, sinal:hex):
         payload = bytes([0x01, sinal])
-        servidor.enviar_para_todos(payload)
+        self.enviar_para_todos(payload)
     
 
 def enviar_comandos_lentamente(servidor):
@@ -139,7 +139,7 @@ def enviar_comandos_lentamente(servidor):
 
 
 if __name__ =="__main__":
-    servidor = servidor_central()
+    servidor = Servidor()
     t = threading.Thread(
                 target=enviar_comandos_lentamente,
                 args=(servidor,),

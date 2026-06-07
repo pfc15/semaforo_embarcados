@@ -1,9 +1,10 @@
 import socket
 import struct
 import threading
+from time import sleep
 
 class Cliente_sinal():
-    def __init__(self, host="127.0.0.1", porta=65432):
+    def __init__(self, host="127.0.0.1", porta=65430):
         self.rodando = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, porta ))
@@ -66,20 +67,22 @@ class Cliente_sinal():
 
 cliente = Cliente_sinal()
 while True:
-    comando = input("> ")
+    sleep(0.5)
 
-    if comando == "sair" or comando== "exit":
+    payload = bytes([0x01, 0x01]) + struct.pack("f", 10.5)
+    print(f"len: {len(payload)}; payload: {payload}")
+    try: 
+        cliente.enviar_msg(payload)
+    except OSError:
+        print("erro no envio")
         cliente.desligar()
         break
 
-    if comando == "sinal":
-        payload = bytes([0x01, 0x01]) + struct.pack("f", 10.5)
-        print(f"len: {len(payload)}; payload: {payload}")
+    sleep(0.1)
+    payload = bytes([0x02, 0x03])
+    try: 
         cliente.enviar_msg(payload)
-    if comando == "quantidade":
-        payload = bytes([0x02, 0x03])
-        cliente.enviar_msg(payload)
-
-    
-
-
+    except OSError:
+        print("erro no envio")
+        cliente.desligar()
+        break
