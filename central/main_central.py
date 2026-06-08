@@ -141,15 +141,59 @@ class Servidor_Central(Servidor):
                 self.enviar_abrir(direcao)  
 
 
-# --- Exemplo de uso ---
+def menu(servidor:Servidor_Central):
+    comando = 0
+    
+    while True:
+        print("--"*25)
+        print(" 1- abrir sinal")
+        print(" 2- mudar modo")
+        print(" 3- ver log de multas")
+        print(" 4- ver passagem de carros")
+        print(" 5- fechar aplicação ")
+        try:
+            comando = int(input("escolha sua opção: "))
+            if comando == 1:
+                subcomando =-1
+                while subcomando<0 or subcomando>4:
+                    print("""
+1- via principal sinal leste
+2- cruzamento sinal leste
+3- via principal sinal oeste
+4- cruzamento sinal oeste
+""")   
+                    subcomando = int(input("escolha sua opção: "))
+                
+                    servidor.enviar_abrir(subcomando)
+            elif comando == 2:
+                subcomando =-1
+                while subcomando<0 or subcomando>4:
+                    print("""
+1- modo noite
+2- modo dia
+""")   
+                    subcomando = int(input("escolha sua opção: "))
+                
+                    servidor.enviar_abrir(subcomando-1)
+
+            elif comando== 3:
+                with open("log_multas.csv", "r") as fp:
+                    texto = fp.read()
+                    print("---"*25)
+                    print("LOG MULTAS")
+                    print(texto)
+                    print("---"*25)
+            
+            elif comando == 4: # passagem de carros
+                pass
+                
+            elif comando ==5:
+                servidor.desligar()
+                break
+
+        except:
+            print("coloque apenas números no menu!")
+
 if __name__ == "__main__":
     servidor = Servidor_Central()
-    # t = threading.Thread(
-    #             target=enviar_comandos_lentamente,
-    #             args=(servidor,),
-    #             daemon=True
-    # )
-    # t.start()
-
-    while True:
-        pass
+    menu(servidor) 
