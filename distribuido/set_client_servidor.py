@@ -1,0 +1,88 @@
+import socket
+import struct
+import threading
+from time import sleep
+
+class Cliente_sinal():
+    def __init__(self, host="127.0.0.1", porta=65430):
+        self.rodando = True
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, porta ))
+        self._handles = {
+            0x01: self.handle_abrir_sinal,
+            0x02: self.handle_modo_dia
+        }
+
+        threading.Thread(
+            target=self.receber_mensagens,
+            args=(self.sock,),
+            daemon=True
+        ).start()
+
+    def desligar(self):
+        print("Encerrando servidor...")
+
+        self.rodando = False
+
+        try:
+            self.sock.close()
+        except:
+            pass
+        
+        print("Servidor encerrado.")
+
+    def receber_mensagens(self, sock):
+        while self.rodando:
+            try:
+                data = sock.recv(1024)
+                print(data)
+
+                if not data:
+                    print("Servidor desconectou")
+                    break
+                data = bytes(data)
+                self._handles[data[0]](data[1:])
+
+            except Exception as e:
+                print(f"Erro: {e}")
+                break
+
+        sock.close()
+
+    def handle_modo_dia(self, data):
+        print("handler modo dia")
+        if data[0] == 0x00:
+            print("modo noturno")
+        elif data[0] == 0x01:
+            print("modo dia")
+
+    def handle_abrir_sinal(self, data):
+        print("handler abrir sinal")
+        print(f"abrir sinal: {data[0]}")
+    
+    def enviar_msg(self, data):
+        self.sock.send(data)
+
+
+
+cliente = Cliente_sinal()
+while True:
+    sleep(0.5)
+
+    payload = bytes([0x01, 0x01]) + struct.pack("f", 10.5)
+    print(f"len: {len(payload)}; payload: {payload}")
+    try: 
+        cliente.enviar_msg(payload)
+    except OSError:
+        print("erro no envio")
+        cliente.desligar()
+        break
+
+    sleep(0.1)
+    payload = bytes([0x02, 0x03])
+    try: 
+        cliente.enviar_msg(payload)
+    except OSError:
+        print("erro no envio")
+        cliente.desligar()
+        break
