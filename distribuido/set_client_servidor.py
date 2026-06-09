@@ -62,27 +62,3 @@ class Cliente_sinal():
     
     def enviar_msg(self, data):
         self.sock.send(data)
-
-
-
-cliente = Cliente_sinal()
-while True:
-    sleep(0.5)
-
-    payload = bytes([0x01, 0x01]) + struct.pack("f", 10.5)
-    print(f"len: {len(payload)}; payload: {payload}")
-    try: 
-        cliente.enviar_msg(payload)
-    except OSError:
-        print("erro no envio")
-        cliente.desligar()
-        break
-
-    sleep(0.1)
-    payload = bytes([0x02, 0x03])
-    try: 
-        cliente.enviar_msg(payload)
-    except OSError:
-        print("erro no envio")
-        cliente.desligar()
-        break

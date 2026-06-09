@@ -1,6 +1,8 @@
 from time import sleep
 import datetime
 import sys
+import set_client_servidor as s
+import threading
 
 DEBUG = False
 
@@ -41,6 +43,8 @@ class Client():
         self.semaforo2 = None
         self.modo_noite = False
         self.modo_emergencia = None # "principal" | "travessia1" | "travessia2" | None
+
+        self.client_server = s.Cliente_sinal() # Instancia o cliente de rede para comunicação com o servidor
         
     def setupGPIO(self):
         if DEBUG:
@@ -72,10 +76,10 @@ class Client():
             GPIO.setup(PINS_VEL_SENSOR2_S1[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             GPIO.setup(PINS_VEL_SENSOR2_S1[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[0], GPIO.RISING, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[1], GPIO.RISING, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[0], GPIO.RISING, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[1], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[0], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S1[1], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[0], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S1[1], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
 
         if semaforo == "s2":
             # Configuração dos pinos GPIO output (estado do semáforo 2)
@@ -98,8 +102,6 @@ class Client():
             GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[1], GPIO.RISING, callback=velocidade_callback)
             GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[0], GPIO.RISING, callback=velocidade_callback)
             GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[1], GPIO.RISING, callback=velocidade_callback)
-
-            
 
     def setupSem(self, semaforo="s1"):
         instanceSemaforo = Semaforo()
@@ -156,6 +158,87 @@ class Client():
 
     def setModoEmergencia(self, modo):
         self.modo_emergencia = modo
+
+    def handle_abrir_sinal(self, data):
+        # semaforo 1; principal -> 0
+        # semaforo 1; cruzamento -> 1
+        # semaforo 2; principal -> 2
+        # semaforo 2; cruzamento -> 3
+        modes = {
+            0: "principal",
+            1: "travessia1",
+            2: "principal",
+            3: "travessia2"
+        }
+
+        self.setModoEmergencia(modes[data[0]])
+        print("handler abrir sinal")
+        print(f"abrir sinal: {data[0]} modo: {modes[data[0]]}")
+
+
+    def handle_modo_dia(self, data):
+        modes = {
+            0x00: True,
+            0x01: False
+        }
+
+        self.modo_noite = modes[data[0]]
+        print("handler modo dia")
+        print(f"modo noite: {self.modo_noite}")
+
+    def velocidade_callback(self, channel):
+        last_time_pins_a = {
+            PINS_VEL_SENSOR1_S1[0]: LAST_TIME_SEM1_SENSOR1, # 
+            PINS_VEL_SENSOR2_S1[0]: LAST_TIME_SEM1_SENSOR2,
+            PINS_VEL_SENSOR1_S2[0]: LAST_TIME_SEM2_SENSOR1,
+            PINS_VEL_SENSOR2_S2[0]: LAST_TIME_SEM2_SENSOR2,
+        }
+
+        last_time_pins_b = {
+            PINS_VEL_SENSOR1_S1[1]: LAST_TIME_SEM1_SENSOR1,
+            PINS_VEL_SENSOR2_S1[1]: LAST_TIME_SEM1_SENSOR2,
+            PINS_VEL_SENSOR1_S2[1]: LAST_TIME_SEM2_SENSOR1,
+            PINS_VEL_SENSOR2_S2[1]: LAST_TIME_SEM2_SENSOR2
+        }
+
+        name_bind = {pino: i + 1 for i, pino in enumerate(last_time_pins_b)}
+
+        if channel in last_time_pins_a:
+            last_time_pins_a[channel][0] = datetime.datetime.now()
+            
+        elif channel in last_time_pins_b:
+            last_time_a = last_time_pins_b[channel][0]
+            if last_time_a is None:
+                print(f"Falha ao calcular a velocidade para o canal {channel}.")
+                return
+            
+            tempo_decorrido = (datetime.datetime.now() - last_time_a).total_seconds()
+            sensor = name_bind[channel]
+            if tempo_decorrido > 0:
+                vel = 9 / tempo_decorrido
+                self.COUNT_CARS += 1
+            
+                if vel > 60:
+                    print(f"Velocidade muito alta detectada no sensor {sensor}! Velocidade: {vel:.2f} km/h")
+
+                    self.client_server.enviar_msg(bytes([0x01, sensor, vel ])) # Enviar alerta de velocidade alta para o servidor
+
+
+            last_time_pins_b[channel][0] = None
+
+    def setupMonitoramentoVelocidadePassagens(self):
+        threading.Thread(
+            target=self.monitoraVelocidadePassagens,
+            args=(self.sock,),
+            daemon=True
+        ).start()
+
+    def monitoraVelocidadePassagens(self):
+        while True:
+            self.client_server.enviar_msg(bytes([0x02, self.COUNT_CARS]))
+
+            sleep(2)
+
 
 class Estado():
     def __init__(self, codigo, prox, temp_espera):
@@ -309,59 +392,20 @@ def set_gpio_output(codigo, semaforo=1):
 
     GPIO.output(PINS_S1 if semaforo == 1 else PINS_S2, gpio_mapping[codigo])
 
-def velocidade_callback(channel):
-    last_time_pins_a = {
-        PINS_VEL_SENSOR1_S1[0]: LAST_TIME_SEM1_SENSOR1,
-        PINS_VEL_SENSOR2_S1[0]: LAST_TIME_SEM1_SENSOR2,
-        PINS_VEL_SENSOR1_S2[0]: LAST_TIME_SEM2_SENSOR1,
-        PINS_VEL_SENSOR2_S2[0]: LAST_TIME_SEM2_SENSOR2,
-    }
-
-    last_time_pins_b = {
-        PINS_VEL_SENSOR1_S1[1]: LAST_TIME_SEM1_SENSOR1,
-        PINS_VEL_SENSOR2_S1[1]: LAST_TIME_SEM1_SENSOR2,
-        PINS_VEL_SENSOR1_S2[1]: LAST_TIME_SEM2_SENSOR1,
-        PINS_VEL_SENSOR2_S2[1]: LAST_TIME_SEM2_SENSOR2
-    }
-
-    name_bind = {pino: i + 1 for i, pino in enumerate(last_time_pins_b)}
-
-    if channel in last_time_pins_a:
-        last_time_pins_a[channel][0] = datetime.datetime.now()
-        
-    elif channel in last_time_pins_b:
-        last_time_a = last_time_pins_b[channel][0]
-        if last_time_a is None:
-            print(f"Falha ao calcular a velocidade para o canal {channel}.")
-            return
-        
-        tempo_decorrido = (datetime.datetime.now() - last_time_a).total_seconds()
-        sensor = name_bind[channel]
-        if tempo_decorrido > 0:
-            vel = 10.15 / tempo_decorrido
-            vel1 = vel if sensor == 1 else 0
-            vel2 = vel if sensor == 2 else 0
-            vel3 = vel if sensor == 3 else 0
-            vel4 = vel if sensor == 4 else 0
-
-            cor_vel_1 = "\033[92m" if vel1 <= 60 else "\033[91m"
-            cor_vel_2 = "\033[92m" if vel2 <= 60 else "\033[91m"
-            cor_vel_3 = "\033[92m" if vel3 <= 60 else "\033[91m"
-            cor_vel_4 = "\033[92m" if vel4 <= 60 else "\033[91m"
-            reset_cor = "\033[0m"
-
-            print(f"[ 1: {cor_vel_1}{vel1:.2f}{reset_cor} ] [ 2: {cor_vel_2}{vel2:.2f}{reset_cor} ] [ 3: {cor_vel_3}{vel3:.2f}{reset_cor} ] [ 4: {cor_vel_4}{vel4:.2f}{reset_cor} ]")
-            #print(f"Velocidade sensor {name_bind[channel]}: {vel:.2f} km/h, tempo decorrido: {tempo_decorrido:.2f} segundos")
-        
-        last_time_pins_b[channel][0] = None
 
 def main():
-    client = Client()
+    client = Client() # Instancia o módulo físico do cliente (GPIO, botões, sensores, etc) e a lógica de controle dos semáforos
     client.setupGPIO()
     client.setupGPIOSemaforo("s1")
     client.setupGPIOSemaforo("s2")
     client.setupSem("s1")
     client.setupSem("s2")
+    client.setupMonitoramentoVelocidadePassagens()
+
+    client.client_server._handles = {
+        0x01: client.handle_abrir_sinal,
+        0x02: client.handle_modo_dia
+    }
 
     try:
         while True:
