@@ -1,6 +1,5 @@
 import serial
 import struct
-from bitarray import bitarray
 
 
 MATRICULA = bytes([0x00, 0x06, 0x02, 0x04, 0x02, 0x08])
@@ -78,30 +77,17 @@ def modbus_enviar_comando(ser, endereco: int,funcao: int, dados: bytes,) -> tupl
     if ser is None:
         return False, 0
 
-    # --- Monta payload com bitarray ---
-    pacote_bits = bitarray(endian='big')
+    
+    payload = (
+        bytes([endereco]) +
+        bytes([funcao]) +
+        bytes(dados) +
+        MATRICULA
+    )
 
-    pacote_bits.frombytes(bytes([endereco]))
-    pacote_bits.frombytes(bytes([funcao]))
-
-    for byte in dados:
-        pacote_bits.frombytes(bytes([byte]))
-
-    pacote_bits.frombytes(MATRICULA)
-
-    payload = pacote_bits.tobytes()  # tudo antes do CRC
-
-    # --- Calcula CRC sobre: endereco + funcao + subcomando + dados + matricula ---
-    # equivalente a: calcula_CRC(final_buffer, 3 + size + 6)
     crc = calcula_crc(payload)
 
-    # --- Anexa CRC em little-endian (byte baixo primeiro, byte alto depois) ---
-    # equivalente a: *crc & 0xFF  e  (*crc >> 8) & 0xFF
-    crc_bits = bitarray(endian='big')
-    crc_bits.frombytes(struct.pack('<H', crc))  # '<H' = little-endian unsigned 16 bits
-
-    pacote_bits.extend(crc_bits)
-    payload_final = pacote_bits.tobytes()
+    payload_final = payload + struct.pack('<H', crc)
 
     # --- Envia ---
     try:
