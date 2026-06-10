@@ -13,7 +13,7 @@ python3 central/main_central.py &
 PID_SERVIDOR=$!
 sleep 2
 
-python3 distribuido/set_client_servidor.py &
+python3 distribuido/client.py &
 PID_CLIENTE=$!
 sleep 2
 
