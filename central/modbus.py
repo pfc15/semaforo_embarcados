@@ -91,12 +91,10 @@ def modbus_enviar_comando(ser, endereco: int,funcao: int, dados: bytes,) -> tupl
 
     # --- Envia ---
     try:
-        print("Escrevendo caracteres na UART ...", end=" ")
         count = ser.write(payload_final)
         if count <= 0:
             print("UART TX error")
             return False, crc
-        print("escrito.")
         return True, crc
     except serial.SerialException as e:
         print(f"UART TX error: {e}")

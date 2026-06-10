@@ -45,7 +45,6 @@ class Servidor_Central(Servidor):
             print("erro no enivo do comando")
             return None
         tamanho, buffer = modbus_recebe_info(self.ser, False)
-        print(f"buffer: {buffer}")
 
         isOk, _ = modbus_enviar_comando(
             self.ser, endereco_sensor[sensor], 0x03,
@@ -56,7 +55,6 @@ class Servidor_Central(Servidor):
         )
 
         tamanho, buffer = modbus_recebe_info(self.ser, False)
-        print(f"buffer: {buffer}")
         if buffer[4] == 0x01:
             print("processando...")
         elif buffer[4] == 0x00:
@@ -115,13 +113,8 @@ class Servidor_Central(Servidor):
                 return False
 
             tamanho, buffer = modbus_recebe_info(self.ser, False)
-            print("-="*25)
-            print("emergencia")
-            cont = 0
-            for h in bytes(buffer):
-                print(f"{cont}: {hex(h)}")
-                cont+=1
 
+            
             emergencia_ativa = buffer[4]
             estrada = buffer[6]
             direcao = buffer[8]
@@ -138,7 +131,7 @@ class Servidor_Central(Servidor):
             if emergencia_ativa == 0x01:
                 print("---"*25)
                 print("EMERGENCIA")
-                self.enviar_abrir(direcao)  
+                self.enviar_abrir(direcao)
 
 
 def menu(servidor:Servidor_Central):
@@ -196,4 +189,4 @@ def menu(servidor:Servidor_Central):
 
 if __name__ == "__main__":
     servidor = Servidor_Central()
-    menu(servidor) 
+    menu(servidor)
