@@ -10,6 +10,7 @@ class Servidor_Central(Servidor):
     def __init__(self):
         super().__init__()
         self.ser = setup()
+        self.modo_dia = True
         self.t_emergencia = threading.Thread(
             target=self.monitora_emergencia,
             args=(),
@@ -158,6 +159,11 @@ class Servidor_Central(Servidor):
                                 break
                     
                     self.enviar_acabou_emergencia()
+
+
+                if (modo == 0x00) != self.modo_dia:
+                    self.modo_dia = True if modo == 0x00 else False
+                    self.enviar_modo(self.modo_dia)
 
 
 def menu(servidor:Servidor_Central):

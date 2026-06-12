@@ -116,8 +116,8 @@ class Servidor():
                 self.clientes.remove(cliente)
                 cliente.close()
 
-    def enviar_modo(self, modo:bool) -> bool:
-        payload = bytes([0x02, 0x00 if not modo else 0x01])
+    def enviar_modo(self, modo_dia:bool) -> bool:
+        payload = bytes([0x02, 0x00 if not modo_dia else 0x01])
         self.enviar_para_todos(payload)
     
     def enviar_abrir(self, sinal:hex):
