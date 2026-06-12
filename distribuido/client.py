@@ -43,7 +43,8 @@ class Client():
         self.semaforo2 = None
         self.modo_noite = False
         self.modo_emergencia = None # "principal" | "travessia1" | "travessia2" | None
-
+        
+        sleep(5)
         self.client_server = s.Cliente_sinal() # Instancia o cliente de rede para comunicação com o servidor
         
     def setupGPIO(self):
@@ -98,10 +99,10 @@ class Client():
             GPIO.setup(PINS_VEL_SENSOR2_S2[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             GPIO.setup(PINS_VEL_SENSOR2_S2[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[0], GPIO.RISING, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[1], GPIO.RISING, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[0], GPIO.RISING, callback=velocidade_callback)
-            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[1], GPIO.RISING, callback=velocidade_callback)
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[0], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
+            GPIO.add_event_detect(PINS_VEL_SENSOR1_S2[1], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[0], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
+            GPIO.add_event_detect(PINS_VEL_SENSOR2_S2[1], GPIO.RISING, callback=lambda channel: self.velocidade_callback(channel))
 
     def setupSem(self, semaforo="s1"):
         instanceSemaforo = Semaforo()
@@ -175,7 +176,10 @@ class Client():
         print("handler abrir sinal")
         print(f"abrir sinal: {data[0]} modo: {modes[data[0]]}")
 
+    def handle_acabar_emergencia(self, data):
+        self.setModoEmergencia(None)
 
+    
     def handle_modo_dia(self, data):
         modes = {
             0x00: True,
@@ -394,6 +398,7 @@ def set_gpio_output(codigo, semaforo=1):
 
 
 def main():
+    sleep(5)
     client = Client() # Instancia o módulo físico do cliente (GPIO, botões, sensores, etc) e a lógica de controle dos semáforos
     client.setupGPIO()
     client.setupGPIOSemaforo("s1")
@@ -404,7 +409,8 @@ def main():
 
     client.client_server._handles = {
         0x01: client.handle_abrir_sinal,
-        0x02: client.handle_modo_dia
+        0x02: client.handle_modo_dia,
+        0x03: client.handle_acabar_emergencia
     }
 
     try:

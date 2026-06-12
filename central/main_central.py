@@ -2,6 +2,7 @@ import struct
 from modbus import *
 from setup_servidor import *
 from time import sleep
+import datetime
 import time
 from multa import *
 
@@ -101,7 +102,6 @@ class Servidor_Central(Servidor):
         return retorno
 
     def monitora_emergencia(self):
-        emergencia = False
         while self.rodando:
             isOk, _ = modbus_enviar_comando(self.ser, 0x20, 0x03,
             bytes([
@@ -114,24 +114,50 @@ class Servidor_Central(Servidor):
 
             tamanho, buffer = modbus_recebe_info(self.ser, False)
 
-            
-            emergencia_ativa = buffer[4]
-            estrada = buffer[6]
-            direcao = buffer[8]
-            intersecao_id = buffer[10]
-            tipo_veiculo = buffer[12]
-            signal_group = buffer[14]
-            time_out = buffer[16]
-            nao_atendidos = buffer[18]
-            tempo_decorrido = buffer[20]
-            tempo_max = buffer[22]
-            modo = buffer[24]
+            if tamanho >4:
+                emergencia_ativa = buffer[4]
+                direcao = buffer[8]
+                intersecao_id = buffer[10]
+                tipo_veiculo = buffer[12]
+                signal_group = buffer[14]
+                time_out = buffer[16]
+                nao_atendidos = buffer[18]
+                tempo_decorrido = buffer[20]
+                tempo_max = buffer[22]
+                modo = buffer[24]
 
-            
-            if emergencia_ativa == 0x01:
-                print("---"*25)
-                print("EMERGENCIA")
-                self.enviar_abrir(direcao)
+                
+                if emergencia_ativa == 0x01:
+                    cont = 0
+                    for b in buffer:
+                        print(f"{cont}: {b}")
+                        cont+=1
+                    inicio = datetime.datetime.now()
+                    while datetime.datetime.now() - inicio < datetime.timedelta(seconds=25):
+                        print("---"*25)
+                        print("EMERGENCIA")
+                        self.enviar_abrir(direcao)
+                        sleep(2)
+                        isOk, _ = modbus_enviar_comando(self.ser, 0x20, 0x03,
+                        bytes([
+                            0x00, 0x00,  # endereço inicial = 1
+                            0x0B, 0x00    # quantidade = 11
+                        ]))
+                        if not isOk:
+                            print("ERRO AO LER EMERGENCIA")
+                            return False
+
+                        tamanho, buffer = modbus_recebe_info(self.ser, False)
+                        cont = 0
+                        for b in buffer:
+                            print(f"{cont}: {b}")
+                            cont+=1
+                        if tamanho>4:
+                            emergencia_ativa = buffer[4]
+                            if emergencia_ativa == 0x00:
+                                break
+                    
+                    self.enviar_acabou_emergencia()
 
 
 def menu(servidor:Servidor_Central):
@@ -184,8 +210,12 @@ def menu(servidor:Servidor_Central):
                 servidor.desligar()
                 break
 
-        except:
-            print("coloque apenas números no menu!")
+        except EOFError:
+            break
+        except :
+            print("printe números apenas")
+        
+        
 
 if __name__ == "__main__":
     servidor = Servidor_Central()

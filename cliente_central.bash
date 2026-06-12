@@ -8,16 +8,11 @@ encerrar() {
     exit 0
 }
 trap encerrar SIGINT SIGTERM
-
-python3 central/main_central.py &
-PID_SERVIDOR=$!
-sleep 2
-
 python3 distribuido/client.py &
 PID_CLIENTE=$!
-sleep 2
 
+python3 central/main_central.py
 
+kill $PID_CLIENTE
 
 wait $PID_SERVIDOR
-wait $PID_CLIENTE

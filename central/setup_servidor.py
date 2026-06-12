@@ -124,6 +124,10 @@ class Servidor():
         payload = bytes([0x01, sinal])
         self.enviar_para_todos(payload)
     
+    def enviar_acabou_emergencia(self):
+        payload = bytes([0x03, 0x00])
+        self.enviar_para_todos(payload)
+    
 
 def enviar_comandos_lentamente(servidor):
     cont = 0
