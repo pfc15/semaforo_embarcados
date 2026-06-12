@@ -122,6 +122,7 @@ class Client():
         end_time = instanceSemaforo.end_time
         swpins = PINS_SW1 if semaforo == "s1" else PINS_SW2
 
+        # emergencia 
         if (
             self.modo_emergencia
             and not isinstance(
@@ -141,12 +142,10 @@ class Client():
 
         if not self.modo_noite:
             if GPIO.event_detected(swpins[0]):
-                print("Botão principal pressionado!")
                 if instanceSemaforo.estado.principalPressed():                
                     pass
 
             if GPIO.event_detected(swpins[1]):
-                print("Botão de travessia pressionado!")
                 if instanceSemaforo.estado.travessiaPressed():
                     pass
 
@@ -174,6 +173,9 @@ class Client():
         print(f"ABRIR SINAL: {data[0]-1}")
 
         self.setModoEmergencia(modes[data[0]-1])
+
+        self.modo_emergencia = None
+
         print("handler abrir sinal")
         # print(f"abrir sinal: {data[0]} modo: {modes[data[0]]}")
 
@@ -224,7 +226,6 @@ class Client():
                 self.COUNT_CARS += 1
             
                 if vel > 60:
-                    print(f"Velocidade muito alta detectada no sensor {sensor}! Velocidade: {vel:.2f} km/h")
 
                     self.client_server.enviar_msg(bytes([0x01, sensor, vel ])) # Enviar alerta de velocidade alta para o servidor
 
@@ -240,7 +241,6 @@ class Client():
 
     def monitoraVelocidadePassagens(self):
         while True:
-            print(f"count cars: {bytes([self.COUNT_CARS])}")
             self.client_server.enviar_msg(bytes([0x02, self.COUNT_CARS]))
 
             sleep(2)

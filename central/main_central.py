@@ -20,13 +20,9 @@ class Servidor_Central(Servidor):
 
 
     def handle_multa(self, data):
-        print('-='*25)
-        print("multa")
         multa = self.tirar_foto(data[0])
         multa.velocidade = struct.unpack("f", data[1:5])[0]
-        multa.printar_multa()
         multa.salvar()
-        print("multa, salva")
 
 
     def tirar_foto(self, sensor:int) ->  Multa:
@@ -57,9 +53,7 @@ class Servidor_Central(Servidor):
         )
 
         tamanho, buffer = modbus_recebe_info(self.ser, False)
-        if buffer[4] == 0x01:
-            print("processando...")
-        elif buffer[4] == 0x00:
+        if buffer[4] == 0x00:
             print("não recebeu comando")
             return None
 
@@ -77,7 +71,6 @@ class Servidor_Central(Servidor):
             ])
             )
             tamanho, buffer = modbus_recebe_info(self.ser, False)
-            print(f"buffer: {buffer}")
             
             if tamanho<=0:
                 print("sem mensagem")
@@ -91,13 +84,10 @@ class Servidor_Central(Servidor):
                 print("ERRO AO TIRAR A FOTO")
                 return None
             elif buffer[4] == 0x02:
-                print("ok!")
                 break
         
         placa = buffer[7:15].decode("ascii").rstrip("\x00")
-        print(f"placa: {str(placa)}")
         confianca = int.from_bytes(buffer[15:17], 'big')
-        print(f"confiança: {confianca}%")
         retorno = Multa(placa, confianca, 0, sensor)
 
         return retorno
@@ -134,6 +124,8 @@ class Servidor_Central(Servidor):
                         print(f"{cont}: {b}")
                         cont+=1
                     inicio = datetime.datetime.now()
+
+                    # loop da emergencia, só acaba se furar o tempo ou emergencia acabar
                     while datetime.datetime.now() - inicio < datetime.timedelta(seconds=25):
                         print("---"*25)
                         print("EMERGENCIA")
@@ -190,6 +182,7 @@ def menu(servidor:Servidor_Central):
                     subcomando = int(input("escolha sua opção: "))
                 
                     servidor.enviar_abrir(subcomando)
+                    
             elif comando == 2:
                 subcomando =-1
                 while subcomando<0 or subcomando>4:

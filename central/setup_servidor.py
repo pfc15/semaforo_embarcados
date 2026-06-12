@@ -59,7 +59,8 @@ class Servidor():
         f"via {via}\n; velocidade: {velocidade}")
     
     def handle_quantidade(self, data):
-        print(f"quantidade de carros: {data[0]}")
+        # print(f"quantidade de carros: {data[0]}")
+        pass
     
     def tratar_cliente(self, sock, addr):
         print(f"Cliente conectado: {addr}")

@@ -62,5 +62,4 @@ class Cliente_sinal():
         print(f"abrir sinal: {data[0]}")
     
     def enviar_msg(self, data):
-        print(f"data: {data}")
         self.sock.send(data)
