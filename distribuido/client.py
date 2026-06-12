@@ -168,16 +168,10 @@ class Client():
             0x02: "principal",
             0x03: "travessia2"
         }
-        print(f"tipo: {type(data[0])}")
-
-        print(f"ABRIR SINAL: {data[0]-1}")
 
         self.setModoEmergencia(modes[data[0]-1])
 
         self.modo_emergencia = None
-
-        print("handler abrir sinal")
-        # print(f"abrir sinal: {data[0]} modo: {modes[data[0]]}")
 
     def handle_acabar_emergencia(self, data):
         self.setModoEmergencia(None)
@@ -190,8 +184,6 @@ class Client():
         }
 
         self.modo_noite = modes[data[0]]
-        print("handler modo dia")
-        print(f"modo noite: {self.modo_noite}")
 
     def velocidade_callback(self, channel):
         last_time_pins_a = {
