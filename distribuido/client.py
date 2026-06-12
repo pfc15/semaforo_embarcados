@@ -176,10 +176,12 @@ class Client():
         if data[0]-1 == 0x00 or data[0]-1 == 0x01:
             self.semaforo1.estado = self.semaforo1.estados[estado]
             self.semaforo1.estado.end_time = get_end_time(self.semaforo1.estado.temp_espera)
-        
+            set_gpio_output(self.semaforo1.estado.codigo, semaforo=1)
+
         elif data[0]-1 == 0x02 or data[0]-1 == 0x03:
             self.semaforo2.estado = self.semaforo2.estados[estado]
             self.semaforo2.estado.end_time = get_end_time(self.semaforo2.estado.temp_espera)
+            set_gpio_output(self.semaforo2.estado.codigo, semaforo=2)
         
 
         
