@@ -3,6 +3,7 @@ import datetime
 import sys
 import set_client_servidor as s
 import threading
+import struct
 
 DEBUG = False
 
@@ -171,7 +172,6 @@ class Client():
 
 
         estado = modes[data[0]-1]
-        print(f"data: {data[0]-1}, estado: {estado}")
 
         if data[0]-1 == 0x00 or data[0]-1 == 0x01:
             self.semaforo1.estado = self.semaforo1.estados[estado]
@@ -243,11 +243,9 @@ class Client():
             if tempo_decorrido > 0:
                 vel = 9 / tempo_decorrido
                 self.COUNT_CARS += 1
-            
                 if vel > 60:
-
-                    self.client_server.enviar_msg(bytes([0x01, sensor, vel ])) # Enviar alerta de velocidade alta para o servidor
-
+                    msg = bytes([0x01, sensor]) + struct.pack("f", vel)
+                    self.client_server.enviar_msg(msg)
 
             last_time_pins_b[channel][0] = None
 
@@ -261,7 +259,6 @@ class Client():
     def monitoraVelocidadePassagens(self):
         while True:
             self.client_server.enviar_msg(bytes([0x02, self.COUNT_CARS]))
-
             sleep(2)
 
 

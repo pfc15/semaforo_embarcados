@@ -9,6 +9,7 @@ from multa import *
 class Servidor_Central(Servidor):
     def __init__(self):
         super().__init__()
+        self.lendo = False
         self.ser = setup()
         self.modo_dia = True
         self.t_emergencia = threading.Thread(
@@ -17,6 +18,7 @@ class Servidor_Central(Servidor):
             daemon=True
         )
         self.t_emergencia.start()
+        
 
 
     def handle_multa(self, data):
@@ -25,11 +27,14 @@ class Servidor_Central(Servidor):
         multa.salvar()
 
 
-    def tirar_foto(self, sensor:int) ->  Multa:
+    def tirar_foto(self, sensor) ->  Multa:
         if sensor>4 or sensor<=0:
             print("não existe esse sensor")
             return None
         endereco_sensor = [0, 0x11,0x12, 0x13, 0x14]
+        while self.lendo:
+            sleep(0.5)
+        self.lendo = True
         isOk, _ = modbus_enviar_comando(
             self.ser, endereco_sensor[sensor], 0x10,
             bytes([
@@ -43,6 +48,7 @@ class Servidor_Central(Servidor):
             print("erro no enivo do comando")
             return None
         tamanho, buffer = modbus_recebe_info(self.ser, False)
+        self.lendo = False
 
         isOk, _ = modbus_enviar_comando(
             self.ser, endereco_sensor[sensor], 0x03,
@@ -63,6 +69,9 @@ class Servidor_Central(Servidor):
             if time.monotonic() - inicio > 3.5:  
                 print("time out")
                 return None
+            while self.lendo:
+                sleep(0.5)
+                self.lendo = True
             isOk, _ = modbus_enviar_comando(
             self.ser, endereco_sensor[sensor], 0x03,
             bytes([
@@ -71,6 +80,7 @@ class Servidor_Central(Servidor):
             ])
             )
             tamanho, buffer = modbus_recebe_info(self.ser, False)
+            self.lendo = False
             
             if tamanho<=0:
                 print("sem mensagem")
@@ -94,6 +104,9 @@ class Servidor_Central(Servidor):
 
     def monitora_emergencia(self):
         while self.rodando:
+            while self.lendo:
+                sleep(0.5)
+            self.lendo = True
             isOk, _ = modbus_enviar_comando(self.ser, 0x20, 0x03,
             bytes([
                 0x00, 0x00,  # endereço inicial = 1
@@ -101,10 +114,11 @@ class Servidor_Central(Servidor):
             ]))
             if not isOk:
                 print("ERRO AO LER EMERGENCIA")
+                self.lendo = False
                 return False
 
             tamanho, buffer = modbus_recebe_info(self.ser, False)
-
+            self.lendo = False
             if tamanho >4:
                 emergencia_ativa = buffer[4]
                 direcao = buffer[8]
@@ -115,7 +129,8 @@ class Servidor_Central(Servidor):
                 nao_atendidos = buffer[18]
                 tempo_decorrido = buffer[20]
                 tempo_max = buffer[22]
-                modo = buffer[24]
+                if tamanho>22:
+                    modo = buffer[24]
 
                 
                 if emergencia_ativa == 0x01:
@@ -125,6 +140,9 @@ class Servidor_Central(Servidor):
                     while datetime.datetime.now() - inicio < datetime.timedelta(seconds=25):
                         print("---"*25)
                         print("EMERGENCIA")
+                        while self.lendo:
+                            sleep(0.5)
+                        self.lendo = True
                         self.enviar_inicia_emergencia(direcao)
                         sleep(2)
                         isOk, _ = modbus_enviar_comando(self.ser, 0x20, 0x03,
@@ -137,6 +155,7 @@ class Servidor_Central(Servidor):
                             return False
 
                         tamanho, buffer = modbus_recebe_info(self.ser, False)
+                        self.lendo = False
                         if tamanho>4:
                             emergencia_ativa = buffer[4]
                             if emergencia_ativa == 0x00:
@@ -144,10 +163,10 @@ class Servidor_Central(Servidor):
                     
                     self.enviar_acabou_emergencia()
 
-
-                if (modo == 0x00) != self.modo_dia:
-                    self.modo_dia = True if modo == 0x00 else False
-                    self.enviar_modo(self.modo_dia)
+                if tamanho >22:
+                    if (modo == 0x00) != self.modo_dia:
+                        self.modo_dia = True if modo == 0x00 else False
+                        self.enviar_modo(self.modo_dia)
 
 
 def menu(servidor:Servidor_Central):
@@ -184,7 +203,7 @@ def menu(servidor:Servidor_Central):
 """)   
                     subcomando = int(input("escolha sua opção: "))
                 
-                    servidor.enviar_abrir(subcomando-1)
+                    servidor.enviar_modo(True if subcomando==2 else False)
 
             elif comando== 3:
                 with open("log_multas.csv", "r") as fp:

@@ -10,7 +10,7 @@ class Multa():
     
     def salvar(self):
         with open("log_multas.csv", "+a") as w:
-            w.write(f"{self.timestamp};{self.placa};{self.confianca};{self.velocidade};{self.camera}")
+            w.write(f"{self.timestamp};{self.placa};{self.confianca};{self.velocidade};{self.camera}\n")
     
     def printar_multa(self):
-        print(f"{self.timestamp};{self.placa};{self.confianca};{self.velocidade};{self.camera}")
+        print(f"{self.timestamp};{self.placa};{self.confianca};{self.velocidade};{self.camera}\n")

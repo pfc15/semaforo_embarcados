@@ -48,12 +48,7 @@ class Servidor():
 
 
     def handle_multa(self, data):
-        direcoes = [(1, "principal"), (1, "cruzamento"), (2, "principal")
-                    , (2, "cruzamento")]
-    
-        sem_dir = data[0]
-        semaforo, via = direcoes[int(sem_dir)]
-        velocidade = struct.unpack("f", data[1:5])[0]
+        print("n fui sobre escrito")
     
     def handle_quantidade(self, data):
         # print(f"quantidade de carros: {data[0]}")
