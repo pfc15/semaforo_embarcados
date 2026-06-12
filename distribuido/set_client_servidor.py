@@ -1,6 +1,7 @@
 import socket
 import struct
 import threading
+import traceback
 from time import sleep
 
 class Cliente_sinal():
@@ -44,7 +45,7 @@ class Cliente_sinal():
                 self._handles[data[0]](data[1:])
 
             except Exception as e:
-                print(f"Erro: {e}")
+                traceback.print_exc()
                 break
 
         sock.close()
@@ -61,4 +62,5 @@ class Cliente_sinal():
         print(f"abrir sinal: {data[0]}")
     
     def enviar_msg(self, data):
+        print(f"data: {data}")
         self.sock.send(data)

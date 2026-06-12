@@ -120,7 +120,7 @@ class Servidor():
         payload = bytes([0x02, 0x00 if not modo_dia else 0x01])
         self.enviar_para_todos(payload)
     
-    def enviar_abrir(self, sinal:hex):
+    def enviar_abrir(self, sinal):
         payload = bytes([0x01, sinal])
         self.enviar_para_todos(payload)
     

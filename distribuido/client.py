@@ -43,8 +43,6 @@ class Client():
         self.semaforo2 = None
         self.modo_noite = False
         self.modo_emergencia = None # "principal" | "travessia1" | "travessia2" | None
-        
-        sleep(5)
         self.client_server = s.Cliente_sinal() # Instancia o cliente de rede para comunicação com o servidor
         
     def setupGPIO(self):
@@ -166,15 +164,18 @@ class Client():
         # semaforo 2; principal -> 2
         # semaforo 2; cruzamento -> 3
         modes = {
-            0: "principal",
-            1: "travessia1",
-            2: "principal",
-            3: "travessia2"
+            0x00: "principal",
+            0x01: "travessia1",
+            0x02: "principal",
+            0x03: "travessia2"
         }
+        print(f"tipo: {type(data[0])}")
 
-        self.setModoEmergencia(modes[data[0]])
+        print(f"ABRIR SINAL: {data[0]-1}")
+
+        self.setModoEmergencia(modes[data[0]-1])
         print("handler abrir sinal")
-        print(f"abrir sinal: {data[0]} modo: {modes[data[0]]}")
+        # print(f"abrir sinal: {data[0]} modo: {modes[data[0]]}")
 
     def handle_acabar_emergencia(self, data):
         self.setModoEmergencia(None)
@@ -233,12 +234,13 @@ class Client():
     def setupMonitoramentoVelocidadePassagens(self):
         threading.Thread(
             target=self.monitoraVelocidadePassagens,
-            args=(self.sock,),
+            args=(),
             daemon=True
         ).start()
 
     def monitoraVelocidadePassagens(self):
         while True:
+            print(f"count cars: {bytes([self.COUNT_CARS])}")
             self.client_server.enviar_msg(bytes([0x02, self.COUNT_CARS]))
 
             sleep(2)
@@ -399,6 +401,7 @@ def set_gpio_output(codigo, semaforo=1):
 
 def main():
     sleep(5)
+    print("-- COMEÇANDO CLIENTE --")
     client = Client() # Instancia o módulo físico do cliente (GPIO, botões, sensores, etc) e a lógica de controle dos semáforos
     client.setupGPIO()
     client.setupGPIOSemaforo("s1")
