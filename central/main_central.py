@@ -119,17 +119,13 @@ class Servidor_Central(Servidor):
 
                 
                 if emergencia_ativa == 0x01:
-                    cont = 0
-                    for b in buffer:
-                        print(f"{cont}: {b}")
-                        cont+=1
                     inicio = datetime.datetime.now()
 
                     # loop da emergencia, só acaba se furar o tempo ou emergencia acabar
                     while datetime.datetime.now() - inicio < datetime.timedelta(seconds=25):
                         print("---"*25)
                         print("EMERGENCIA")
-                        self.enviar_abrir(direcao)
+                        self.enviar_inicia_emergencia(direcao)
                         sleep(2)
                         isOk, _ = modbus_enviar_comando(self.ser, 0x20, 0x03,
                         bytes([
@@ -141,10 +137,6 @@ class Servidor_Central(Servidor):
                             return False
 
                         tamanho, buffer = modbus_recebe_info(self.ser, False)
-                        cont = 0
-                        for b in buffer:
-                            print(f"{cont}: {b}")
-                            cont+=1
                         if tamanho>4:
                             emergencia_ativa = buffer[4]
                             if emergencia_ativa == 0x00:

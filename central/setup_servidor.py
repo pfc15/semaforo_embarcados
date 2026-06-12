@@ -53,10 +53,7 @@ class Servidor():
     
         sem_dir = data[0]
         semaforo, via = direcoes[int(sem_dir)]
-        print(data)
         velocidade = struct.unpack("f", data[1:5])[0]
-        print(f"carro acima da velocidade no semaforo {semaforo} " \
-        f"via {via}\n; velocidade: {velocidade}")
     
     def handle_quantidade(self, data):
         # print(f"quantidade de carros: {data[0]}")
@@ -73,8 +70,7 @@ class Servidor():
                     if not data:
                         break
                     data = bytes(data)
-
-                    print(f"{addr}: {data.decode()}")
+                    
                     if data[0] == 0x01:
                         self.handle_multa(data=data[1:])
                     elif data[0] == 0x02:
@@ -121,8 +117,12 @@ class Servidor():
         payload = bytes([0x02, 0x00 if not modo_dia else 0x01])
         self.enviar_para_todos(payload)
     
-    def enviar_abrir(self, sinal):
+    def enviar_inicia_emergencia(self, sinal):
         payload = bytes([0x01, sinal])
+        self.enviar_para_todos(payload)
+
+    def enviar_abrir(self, sinal):
+        payload = bytes([0x04, sinal])
         self.enviar_para_todos(payload)
     
     def enviar_acabou_emergencia(self):

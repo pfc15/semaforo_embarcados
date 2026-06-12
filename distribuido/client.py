@@ -163,6 +163,33 @@ class Client():
         # semaforo 2; principal -> 2
         # semaforo 2; cruzamento -> 3
         modes = {
+            0x00: "E1",
+            0x01: "E5",
+            0x02: "E1",
+            0x03: "E5"
+        }
+
+
+        estado = modes[data[0]-1]
+        print(f"data: {data[0]-1}, estado: {estado}")
+
+        if data[0]-1 == 0x00 or data[0]-1 == 0x01:
+            self.semaforo1.estado = self.semaforo1.estados[estado]
+            self.semaforo1.estado.end_time = get_end_time(self.semaforo1.estado.temp_espera)
+        
+        elif data[0]-1 == 0x02 or data[0]-1 == 0x03:
+            self.semaforo2.estado = self.semaforo2.estados[estado]
+            self.semaforo2.estado.end_time = get_end_time(self.semaforo2.estado.temp_espera)
+        
+
+        
+
+    def handle_iniciar_emergencia(self, data):
+        # semaforo 1; principal -> 0
+        # semaforo 1; cruzamento -> 1
+        # semaforo 2; principal -> 2
+        # semaforo 2; cruzamento -> 3
+        modes = {
             0x00: "principal",
             0x01: "travessia1",
             0x02: "principal",
@@ -170,8 +197,6 @@ class Client():
         }
 
         self.setModoEmergencia(modes[data[0]-1])
-
-        self.modo_emergencia = None
 
     def handle_acabar_emergencia(self, data):
         self.setModoEmergencia(None)
@@ -403,9 +428,10 @@ def main():
     client.setupMonitoramentoVelocidadePassagens()
 
     client.client_server._handles = {
-        0x01: client.handle_abrir_sinal,
+        0x01: client.handle_iniciar_emergencia,
         0x02: client.handle_modo_dia,
-        0x03: client.handle_acabar_emergencia
+        0x03: client.handle_acabar_emergencia,
+        0x04: client.handle_abrir_sinal
     }
 
     try:

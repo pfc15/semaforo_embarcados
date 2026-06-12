@@ -36,7 +36,6 @@ class Cliente_sinal():
         while self.rodando:
             try:
                 data = sock.recv(1024)
-                print(data)
 
                 if not data:
                     print("Servidor desconectou")
@@ -58,8 +57,7 @@ class Cliente_sinal():
             print("modo dia")
 
     def handle_abrir_sinal(self, data):
-        print("handler abrir sinal")
-        print(f"abrir sinal: {data[0]}")
+        pass
     
     def enviar_msg(self, data):
         self.sock.send(data)
